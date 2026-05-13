@@ -1,80 +1,77 @@
 const TARGET_BASE = (Netlify.env.get("TARGET_DOMAIN") || "").replace(/\/$/, "");
 
+const STRIP_HEADERS = new Set([
+  "host",
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+  "forwarded",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+  "x-forwarded-port",
+]);
+
 export default async function handler(request) {
-  // Check if TARGET_DOMAIN is configured
   if (!TARGET_BASE) {
-    return new Response(JSON.stringify({ error: "TARGET_DOMAIN not configured" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    });
+    return new Response("Misconfigured: TARGET_DOMAIN is not set", { status: 500 });
   }
 
   try {
-    // Get the full path from the request
     const url = new URL(request.url);
-    const path = url.pathname + url.search;
-    
-    // Build the target URL
-    let targetUrl = TARGET_BASE;
-    if (path !== "/" && path !== "") {
-      targetUrl = TARGET_BASE + path;
-    }
-    
-    // Create new headers - only essential ones
+    const targetUrl = TARGET_BASE + url.pathname + url.search;
+
     const headers = new Headers();
-    headers.set("User-Agent", "Netlify-Edge-Function/1.0");
-    headers.set("Accept", "*/*");
-    
-    // Forward content-type if present
-    const contentType = request.headers.get("content-type");
-    if (contentType) {
-      headers.set("content-type", contentType);
+    let clientIp = null;
+
+    for (const [key, value] of request.headers) {
+      const k = key.toLowerCase();
+      if (STRIP_HEADERS.has(k)) continue;
+      if (k.startsWith("x-nf-")) continue;
+      if (k.startsWith("x-netlify-")) continue;
+      if (k === "x-real-ip") {
+        clientIp = value;
+        continue;
+      }
+      if (k === "x-forwarded-for") {
+        if (!clientIp) clientIp = value;
+        continue;
+      }
+      headers.set(k, value);
     }
-    
-    // Prepare fetch options
+
+    if (clientIp) headers.set("x-forwarded-for", clientIp);
+
+    const method = request.method;
+    const hasBody = method !== "GET" && method !== "HEAD";
+
     const fetchOptions = {
-      method: request.method,
-      headers: headers,
-      redirect: "follow"
+      method,
+      headers,
+      redirect: "manual",
     };
-    
-    // Add body for non-GET requests
-    if (request.method !== "GET" && request.method !== "HEAD") {
-      try {
-        fetchOptions.body = await request.text();
-      } catch (e) {
-        // No body or error reading body
-      }
+
+    if (hasBody) {
+      fetchOptions.body = request.body;
     }
-    
-    // Make the request with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-    
-    const response = await fetch(targetUrl, {
-      ...fetchOptions,
-      signal: controller.signal
+
+    const upstream = await fetch(targetUrl, fetchOptions);
+
+    const responseHeaders = new Headers();
+    for (const [key, value] of upstream.headers) {
+      if (key.toLowerCase() === "transfer-encoding") continue;
+      responseHeaders.set(key, value);
+    }
+
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers: responseHeaders,
     });
-    
-    clearTimeout(timeoutId);
-    
-    // Return the response
-    return new Response(response.body, {
-      status: response.status,
-      headers: {
-        "Content-Type": response.headers.get("content-type") || "application/octet-stream",
-        "Cache-Control": "no-store"
-      }
-    });
-    
   } catch (error) {
-    // Return a clean 502 error
-    return new Response(JSON.stringify({ 
-      error: "Service Unavailable",
-      message: error.message || "Relay failed"
-    }), {
-      status: 502,
-      headers: { "Content-Type": "application/json" }
-    });
+    return new Response("Bad Gateway: Relay Failed", { status: 502 });
   }
 }
