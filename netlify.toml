@@ -2,7 +2,6 @@
   command = "npm run build"
   publish = "public"
 
-# Change THIS - use a specific path instead of /*
 [[edge_functions]]
   function = "relay"
-  path = "/api/*"  # ← CHANGE FROM "/*" TO "/api/*"
+  path = "/*"
