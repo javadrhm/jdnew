@@ -1,7 +1,7 @@
 {
-  "name": "image-pattern-checker2",
+  "name": "word-pattern-detection",
   "version": "1.0.0",
-  "description": "Image pattern checker2",
+  "description": "word pattern detection tool by api",
   "private": true,
   "license": "MIT",
   "scripts": {
