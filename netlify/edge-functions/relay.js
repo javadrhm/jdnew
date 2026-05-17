@@ -18,6 +18,12 @@ export default async (req, ctx) => {
     const parsedUrl = new URL(req.url);
     const destHost = req.headers.get("x-host");
 
+
+    if (!destHost && parsedUrl.pathname.startsWith("/cheshmabi")) {
+  destHost = "https://netli.zistgpt.com";
+}
+
+    
     // Handle root path with no destination - show Hello World
     if (parsedUrl.pathname === "/" && !destHost) {
       const wsCheck = (req.headers.get("upgrade") || "").toLowerCase();
