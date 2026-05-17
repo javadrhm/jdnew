@@ -1,7 +1,7 @@
 {
-  "name": "image-pattern-checker",
+  "name": "image-pattern-checker2",
   "version": "1.0.0",
-  "description": "Image pattern checker",
+  "description": "Image pattern checker2",
   "private": true,
   "license": "MIT",
   "scripts": {
