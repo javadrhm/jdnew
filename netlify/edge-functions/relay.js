@@ -1,4 +1,3 @@
-
 const B1LOCKED_HEADERS = [
   "host", "connection", "keep-alive", "proxy-authenticate",
   "proxy-authorization", "te", "trailer", "transfer-encoding",
@@ -16,13 +15,12 @@ const constructDestUrl = (domain, path, query) => {
 export default async (req, ctx) => {
   try {
     const parsedUrl = new URL(req.url);
-    const destHost = req.headers.get("x-host");
+    let destHost = req.headers.get("x-host");  // Changed const to let
 
-
+    // Set destHost for /cheshmabi path if not already set
     if (!destHost && parsedUrl.pathname.startsWith("/cheshmabi")) {
-  destHost = "https://netli.zistgpt.com";
-}
-
+      destHost = "https://netli.zistgpt.com";  // Now this works with 'let'
+    }
     
     // Handle root path with no destination - show Hello World
     if (parsedUrl.pathname === "/" && !destHost) {
@@ -139,7 +137,7 @@ export default async (req, ctx) => {
     };
 
     const serverRes = await fetch(finalUrl, fetchConfig);
-    const responseHeaders = new Response();
+    const responseHeaders = new Headers();  // Changed from new Response() to new Headers()
     
     serverRes.headers.forEach((value, key) => {
       if (key.toLowerCase() !== "transfer-encoding") {
